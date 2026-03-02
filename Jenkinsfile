@@ -33,7 +33,7 @@ spec:
 
     environment {
         DOCKER_HUB_USER = "vakula2004"
-        IMAGE_NAME = "python-app"
+        IMAGE_NAME = "my-python-app"
     }
 
     stages {
@@ -79,7 +79,7 @@ spec:
                 // ТЕПЕРЬ ИСПОЛЬЗУЕМ КОНТЕЙНЕР С HELM
                 container('helm-tool') {
                     sh """
-                        helm upgrade --install my-python-release ./python-app \
+                        helm upgrade --install my-python-release ./my-python-app \
                             --set image.tag=${env.BUILD_NUMBER} \
                             --namespace jenkins
                     """
