@@ -1,6 +1,7 @@
 FROM python:3.9-slim
 WORKDIR /app
-COPY requirements.txt .
-RUN pip install -r requirements.txt
+# Важно: устанавливаем flask
+RUN pip install flask 
 COPY . .
+# Убедись, что файл называется именно app.py
 CMD ["python", "app.py"]
