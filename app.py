@@ -18,6 +18,6 @@ def hello():
 def health():
     return jsonify(status="UP")
 
-if __name__ == '__main__':
-    # Слушаем на порту 5000
+if __name__ == "__main__":
+    # host='0.0.0.0' — это критически важно!
     app.run(host='0.0.0.0', port=5000)
