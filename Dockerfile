@@ -1,7 +1,7 @@
 FROM python:3.9-slim
 WORKDIR /app
-# Важно: устанавливаем flask
-RUN pip install flask 
+# Устанавливаем Flask и экспортер метрик
+RUN pip install flask prometheus-flask-exporter
 COPY . .
-# Убедись, что файл называется именно app.py
+EXPOSE 5000
 CMD ["python", "app.py"]
