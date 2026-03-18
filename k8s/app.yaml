@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
       - name: my-python-app
-        image: vakula2004/my-python-app:25
+        image: vakula2004/my-python-app:26
         ports:
         - containerPort: 5000
 ---
