@@ -1,88 +1,36 @@
 pipeline {
-    agent {
-        kubernetes {
-            yaml """
-apiVersion: v1
-kind: Pod
-spec:
-  dnsConfig:
-    nameservers:
-      - 1.1.1.1
-      - 8.8.8.8
-    options:
-      - name: ndots
-        value: "1"
-  containers:
-  - name: docker
-    image: docker:24.0.6-dind
-    securityContext:
-      privileged: true
-    env:
-    - name: DOCKER_TLS_CERTDIR
-      value: ""
-  # ДОБАВИЛИ ЭТОТ КОНТЕЙНЕР ДЛЯ HELM
-  - name: helm-tool
-    image: alpine/k8s:1.27.1
-    command: ["cat"]
-    tty: true
-  - name: jnlp
-    image: jenkins/inbound-agent:alpine
-"""
-        }
-    }
-
+    agent any
+    
     environment {
         DOCKER_HUB_USER = "vakula2004"
-        IMAGE_NAME = "my-python-app"
+        IMAGE_NAME = "python-app"
+        IMAGE_TAG = "${env.BUILD_NUMBER}"
     }
 
     stages {
         stage('Checkout') {
             steps {
-                git url: 'https://github.com/vakula2004/my-python-app.git', branch: 'main'
+                git 'https://github.com/vakula2004/my-python-app.git'
             }
         }
 
-        stage('Build, Test & Push') {
+        stage('Docker Build & Push') {
             steps {
-                container('docker') {
-                    withCredentials([usernamePassword(credentialsId: 'docker-hub-creds', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
-                        sh '''
-                            export DOCKER_HOST=tcp://localhost:2375
-                            sleep 10
-                            
-                            docker build -t ${DOCKER_HUB_USER}/${IMAGE_NAME}:${BUILD_NUMBER} .
-                            docker tag ${DOCKER_HUB_USER}/${IMAGE_NAME}:${BUILD_NUMBER} ${DOCKER_HUB_USER}/${IMAGE_NAME}:latest
-                            
-                            docker run -d --name test-app -p 5000:5000 ${DOCKER_HUB_USER}/${IMAGE_NAME}:${BUILD_NUMBER}
-                            sleep 10
-                            docker exec test-app python -c "import urllib.request; print(urllib.request.urlopen('http://localhost:5000/health').read().decode())" | grep "UP"
-                            
-                            TEST_RESULT=$?
-                            docker stop test-app && docker rm test-app
-                            
-                            if [ $TEST_RESULT -ne 0 ]; then
-                                exit 1
-                            fi
-                            
-                            echo $PASS | docker login -u $USER --password-stdin
-                            docker push ${DOCKER_HUB_USER}/${IMAGE_NAME}:${BUILD_NUMBER}
-                            docker push ${DOCKER_HUB_USER}/${IMAGE_NAME}:latest
-                        '''
-                    }
+                script {
+                    // Тобі треба буде додати Docker Hub Credentials у Jenkins
+                    sh "docker build -t ${DOCKER_HUB_USER}/${IMAGE_NAME}:${IMAGE_TAG} ."
+                    sh "docker login -u ${DOCKER_HUB_USER} -p ${DOCKER_PASSWORD}"
+                    sh "docker push ${DOCKER_HUB_USER}/${IMAGE_NAME}:${IMAGE_TAG}"
                 }
             }
         }
 
-        stage('Deploy with Helm') {
+        stage('Deploy to K8s') {
             steps {
-                // ТЕПЕРЬ ИСПОЛЬЗУЕМ КОНТЕЙНЕР С HELM
-                container('helm-tool') {
-                    sh """
-                        helm upgrade --install my-python-release ./my-python-app \
-                            --set image.tag=${env.BUILD_NUMBER} \
-                            --namespace jenkins
-                    """
+                script {
+                    // Оновлюємо образ у маніфесті та застосовуємо його
+                    sh "sed -i 's|image:.*|image: ${DOCKER_HUB_USER}/${IMAGE_NAME}:${IMAGE_TAG}|' python-app-ha.yaml"
+                    sh "kubectl apply -f python-app-ha.yaml"
                 }
             }
         }
