@@ -4,9 +4,12 @@ metadata:
   name: my-python-app-ingress
   namespace: default
   annotations:
-    # Указываем, что использовать именно nginx
-    kubernetes.io/ingress.class: nginx
+    # Важно для новых версий ingress-nginx
+    ingressclass.kubernetes.io/is-default-class: "true"
+    # Если хочешь заходить просто по IP без домена:
+    nginx.ingress.kubernetes.io/rewrite-target: /
 spec:
+  ingressClassName: nginx # Добавь эту строку явно
   rules:
   - http:
       paths:
