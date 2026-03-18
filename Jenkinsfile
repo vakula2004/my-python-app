@@ -1,99 +1,85 @@
 pipeline {
-    agent any
-    
-    environment {
-        DOCKER_HUB_USER = "vakula2004" // Твій логін (або змініть на свій)
-        IMAGE_NAME = "python-app"
-        IMAGE_TAG = "${env.BUILD_NUMBER}"
-        APP_NAMESPACE = "jenkins"
-    }
-
-    stages {
-        stage('Checkout') {
-            steps {
-                // Jenkins сам бере код з SCM, якщо пайплайн налаштований через GitHub
-                checkout scm 
-            }
-        }
-
-        stage('Docker Build') {
-            steps {
-                script {
-                    echo "Building image: ${DOCKER_HUB_USER}/${IMAGE_NAME}:${IMAGE_TAG}"
-                    sh "docker build -t ${DOCKER_HUB_USER}/${IMAGE_NAME}:${IMAGE_TAG} ."
-                    sh "docker tag ${DOCKER_HUB_USER}/${IMAGE_NAME}:${IMAGE_TAG} ${DOCKER_HUB_USER}/${IMAGE_NAME}:latest"
-                }
-            }
-        }
-
-        stage('Push to Docker Hub') {
-            steps {
-                // Використовуй Credentials ID 'docker-hub-creds', який треба створити в Jenkins
-                withCredentials([usernamePassword(credentialsId: 'docker-hub-creds', 
-                                 usernameVariable: 'DOCKER_USER', 
-                                 passwordVariable: 'DOCKER_PASS')]) {
-                    sh "echo \$DOCKER_PASS | docker login -u \$DOCKER_USER --password-stdin"
-                    sh "docker push ${DOCKER_HUB_USER}/${IMAGE_NAME}:${IMAGE_TAG}"
-                    sh "docker push ${DOCKER_HUB_USER}/${IMAGE_NAME}:latest"
-                }
-            }
-        }
-
-        stage('Deploy to Kubernetes') {
-            steps {
-                script {
-                    // Оновлюємо тег образу в нашому HA маніфесті
-                    sh "sed -i 's|image:.*|image: ${DOCKER_HUB_USER}/${IMAGE_NAME}:${IMAGE_TAG}|' python-app-ha.yaml"
-                    
-                    // Деплоїмо в кластер
-                    sh "kubectl apply -f python-app-ha.yaml -n ${APP_NAMESPACE}"
-                    
-                    // Чекаємо успішного розгортання
-                    sh "kubectl rollout status deployment/python-app -n ${APP_NAMESPACE}"
-                }
-            }
+    agent {
+        kubernetes {
+            yaml '''
+apiVersion: v1
+kind: Pod
+spec:
+  containers:
+  - name: kaniko
+    image: gcr.io/kaniko-project/executor:debug
+    command: ["sleep"]
+    args: ["99d"]
+    volumeMounts:
+    - name: docker-config
+      mountPath: /kaniko/.docker
+  - name: git-tool
+    # Используем образ с git для обновления манифестов
+    image: alpine/git:latest
+    command: ["cat"]
+    tty: true
+  volumes:
+  - name: docker-config
+    emptyDir: {}
+'''
         }
     }
-    
-    post {
-        always {
-            sh "docker logout"
-            cleanWs()
-        }
-    }
-}pipeline {
-    agent any
-    
+
     environment {
         DOCKER_HUB_USER = "vakula2004"
-        IMAGE_NAME = "python-app"
-        IMAGE_TAG = "${env.BUILD_NUMBER}"
+        APP_NAME = "my-python-app"
+        GIT_REPO = "github.com/vakula2004/my-python-app.git"
     }
 
     stages {
         stage('Checkout') {
             steps {
-                git 'https://github.com/vakula2004/my-python-app.git'
+                git url: "https://${GIT_REPO}", 
+                    credentialsId: 'github-token', 
+                    branch: 'main'
             }
         }
 
-        stage('Docker Build & Push') {
+        stage('Build & Push Image') {
             steps {
-                script {
-                    // Тобі треба буде додати Docker Hub Credentials у Jenkins
-                    sh "docker build -t ${DOCKER_HUB_USER}/${IMAGE_NAME}:${IMAGE_TAG} ."
-                    sh "docker login -u ${DOCKER_HUB_USER} -p ${DOCKER_PASSWORD}"
-                    sh "docker push ${DOCKER_HUB_USER}/${IMAGE_NAME}:${IMAGE_TAG}"
+                container('kaniko') {
+                    withCredentials([usernamePassword(credentialsId: 'docker-hub-creds', 
+                                     passwordVariable: 'DOCKER_PASS', 
+                                     usernameVariable: 'DOCKER_USER')]) {
+                        sh '''
+                            printf '{"auths":{"https://index.docker.io/v1/":{"auth":"%s"}}}' \
+                            $(echo -n "${DOCKER_USER}:${DOCKER_PASS}" | base64) > /kaniko/.docker/config.json
+                            
+                            /kaniko/executor --context . \
+                                             --dockerfile Dockerfile \
+                                             --destination ${DOCKER_HUB_USER}/${APP_NAME}:${BUILD_NUMBER} \
+                                             --destination ${DOCKER_HUB_USER}/${APP_NAME}:latest
+                        '''
+                    }
                 }
             }
         }
 
-        stage('Deploy to K8s') {
+        stage('Update Git Manifests') {
             steps {
-                script {
-                    // Оновлюємо образ у маніфесті та застосовуємо його
-                    sh "sed -i 's|image:.*|image: ${DOCKER_HUB_USER}/${IMAGE_NAME}:${IMAGE_TAG}|' python-app-ha.yaml"
-                    sh "kubectl apply -f python-app-ha.yaml"
+                container('git-tool') {
+                    withCredentials([usernamePassword(credentialsId: 'github-token', 
+                                     passwordVariable: 'GIT_PASS', 
+                                     usernameVariable: 'GIT_USER')]) {
+                        sh """
+                            git config --global user.email "jenkins@vakula.dev"
+                            git config --global user.name "Jenkins CI"
+                            
+                            # Меняем тег образа в YAML файле (используем sed)
+                            sed -i "s|image: ${DOCKER_HUB_USER}/${APP_NAME}:.*|image: ${DOCKER_HUB_USER}/${APP_NAME}:${BUILD_NUMBER}|g" k8s/app.yaml
+                            
+                            git add k8s/app.yaml
+                            git commit -m "image update to version ${BUILD_NUMBER} [skip ci]"
+                            
+                            # Пушим изменения обратно в репозиторий
+                            git push https://${GIT_USER}:${GIT_PASS}@${GIT_REPO} HEAD:main
+                        """
+                    }
                 }
             }
         }
