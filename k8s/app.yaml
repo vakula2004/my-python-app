@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
       - name: my-python-app
-        image: vakula2004/my-python-app:latest # ArgoCD будет следить за этим тегом
+        image: vakula2004/my-python-app:24
         ports:
         - containerPort: 5000
 ---
