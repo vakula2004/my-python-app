@@ -1,11 +1,14 @@
 import os
-import psycopg2
 import requests
-from flask import Flask, render_template
-import socket
 import redis
-# Подключение к Postgres
+import psycopg2
+import socket
+from flask import Flask, render_template
+
+app = Flask(__name__)
+
 def save_to_db(symbol, price):
+    print(f"--> Попытка записи в БД: {symbol} = {price}") # Увидим в логах
     try:
         conn = psycopg2.connect(
             host=os.getenv('DB_HOST', 'postgres-service'),
@@ -14,42 +17,37 @@ def save_to_db(symbol, price):
             password='supersecret'
         )
         cur = conn.cursor()
-        # Создаем таблицу, если нет
-        cur.execute("CREATE TABLE IF NOT EXISTS history (id SERIAL PRIMARY KEY, symbol TEXT, price NUMERIC, tstamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP);")
-        # Пишем цену
-        cur.execute("INSERT INTO history (symbol, price) VALUES (%s, %s)", (symbol, price))
+        cur.execute("INSERT INTO history (symbol, price) VALUES (%s, %s)", (symbol, str(price)))
         conn.commit()
         cur.close()
         conn.close()
+        print(f"OK: Записано в БД")
     except Exception as e:
-        print(f"DB Error: {e}")
-app = Flask(__name__)
-# Подключаемся к Redis (имя хоста будет таким же, как имя Service в K8s)
-redis_host = os.getenv('REDIS_HOST', 'redis-service')
-cache = redis.Redis(host=redis_host, port=6379, decode_responses=True)
+        print(f"!!! ОШИБКА БД: {e}")
 
 @app.route('/')
 def get_crypto():
-    symbols = ['BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'SOLUSDT', 'ARBUSDT']
+    print("--- Новый запрос на главную страницу ---")
+    symbols = ['BTCUSDT', 'ETHUSDT', 'BNBUSDT']
     results = {}
-    hostname = socket.gethostname() # Чтобы видеть, какой под ответил
-
-    try:
-        for symbol in symbols:
-            cached_price = cache.get(symbol)
-            if cached_price:
-                results[symbol] = {"price": cached_price, "source": "cache"}
-            else:
-                response = requests.get(f'https://api.binance.com/api/v3/ticker/price?symbol={symbol}')
-                data = response.json()
-                price = "{:,.2f}".format(float(data['price']))
-                cache.set(symbol, price, ex=60)
-                results[symbol] = {"price": price, "source": "api"}
-        
-        # Отправляем данные в HTML-шаблон
-        return render_template('index.html', data=results, host=hostname)
     
-    except Exception as e:
-        return f"Ошибка: {str(e)}", 500
+    # Подключение к Redis
+    r = redis.Redis(host=os.getenv('REDIS_HOST', 'redis-service'), port=6379, decode_responses=True)
+
+    for symbol in symbols:
+        price = r.get(symbol)
+        source = "cache"
+        if not price:
+            res = requests.get(f'https://api.binance.com/api/v3/ticker/price?symbol={symbol}')
+            price = res.json()['price']
+            r.set(symbol, price, ex=60)
+            source = "api"
+        
+        results[symbol] = {"price": price, "source": source}
+        # ВЫЗЫВАЕМ ЗАПИСЬ
+        save_to_db(symbol, price)
+        
+    return render_template('index.html', data=results, host=socket.gethostname())
+
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)
