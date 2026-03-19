@@ -32,4 +32,4 @@ spec:
     - protocol: TCP
       port: 80
       targetPort: 5000
-  type: LoadBalancer # Или NodePort, если ты в локальном кластере
+  type: NodePort # Или NodePort, если ты в локальном кластере
