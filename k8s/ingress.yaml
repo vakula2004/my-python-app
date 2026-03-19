@@ -1,15 +1,10 @@
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: my-python-app-ingress
-  namespace: default
+  name: crypto-app-ingress
   annotations:
-    # Важно для новых версий ingress-nginx
-    ingressclass.kubernetes.io/is-default-class: "true"
-    # Если хочешь заходить просто по IP без домена:
-    nginx.ingress.kubernetes.io/rewrite-target: /
+    kubernetes.io/ingress.class: nginx
 spec:
-  ingressClassName: nginx # Добавь эту строку явно
   rules:
   - http:
       paths:
@@ -17,6 +12,6 @@ spec:
         pathType: Prefix
         backend:
           service:
-            name: my-python-app-service
+            name: my-python-app-service  # Имя твоего сервиса
             port:
               number: 80
