@@ -41,7 +41,20 @@ def get_history():
     except Exception as e:
         print(f"!!! ОШИБКА ЧТЕНИЯ БД: {e}")
     return history
-@app.route('/')
+@app.route('/health')
+def health():
+    try:
+        conn = psycopg2.connect(
+            host=os.getenv('DB_HOST', 'postgres-service'),
+            database='cryptodb',
+            user='postgres',
+            password='supersecret',
+            connect_timeout=2
+        )
+        conn.close()
+        return "OK", 200
+    except Exception as e:
+        return f"Database unreachable: {e}", 500
 def get_crypto():
     print("--- Новый запрос на главную страницу ---")
     symbols = ['BTCUSDT', 'ETHUSDT', 'BNBUSDT']
