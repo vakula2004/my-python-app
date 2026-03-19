@@ -1,13 +1,11 @@
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: crypto-app-ingress
+  name: my-python-app-ingress
   namespace: default
   annotations:
-    # Указываем, что этот ингресс обслуживается nginx-контроллером
     kubernetes.io/ingress.class: nginx
-    # Опционально: если приложение делает редиректы
-    nginx.ingress.kubernetes.io/ssl-redirect: "false"
+    nginx.ingress.kubernetes.io/rewrite-target: /
 spec:
   rules:
   - http:
