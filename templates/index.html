@@ -47,6 +47,27 @@
                 </p>
             </div>
         </div>
+        <h2 class="text-center mt-5 mb-3">🕒 История последних изменений</h2>
+<div class="table-responsive shadow-sm bg-white rounded">
+    <table class="table table-striped mb-0">
+        <thead class="table-secondary">
+            <tr>
+                <th>Валюта</th>
+                <th>Цена</th>
+                <th>Время (UTC)</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for row in history %}
+            <tr>
+                <td>{{ row[0] }}</td>
+                <td>${{ row[1] }}</td>
+                <td><small>{{ row[2].strftime('%Y-%m-%d %H:%M:%S') }}</small></td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
     </div>
 </body>
 </html>
