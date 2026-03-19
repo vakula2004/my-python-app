@@ -24,7 +24,23 @@ def save_to_db(symbol, price):
         print(f"OK: Записано в БД")
     except Exception as e:
         print(f"!!! ОШИБКА БД: {e}")
-
+def get_history():
+    history = []
+    try:
+        conn = psycopg2.connect(
+            host=os.getenv('DB_HOST', 'postgres-service'),
+            database='cryptodb',
+            user='postgres',
+            password='supersecret'
+        )
+        cur = conn.cursor()
+        cur.execute("SELECT symbol, price, tstamp FROM history ORDER BY tstamp DESC LIMIT 10;")
+        history = cur.fetchall() # Получаем список кортежей
+        cur.close()
+        conn.close()
+    except Exception as e:
+        print(f"!!! ОШИБКА ЧТЕНИЯ БД: {e}")
+    return history
 @app.route('/')
 def get_crypto():
     print("--- Новый запрос на главную страницу ---")
@@ -46,8 +62,12 @@ def get_crypto():
         results[symbol] = {"price": price, "source": source}
         # ВЫЗЫВАЕМ ЗАПИСЬ
         save_to_db(symbol, price)
+        history_data = get_history()
         
-    return render_template('index.html', data=results, host=socket.gethostname())
+    return render_template('index.html', 
+                           data=results, 
+                           history=history_data, 
+                           host=socket.gethostname())
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)
