@@ -3,3 +3,4 @@ requests
 redis
 render_template
 prometheus_flask_exporter
+psycopg2-binary

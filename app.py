@@ -1,9 +1,28 @@
 import os
+import psycopg2
 import requests
 from flask import Flask, render_template
 import socket
 import redis
-
+# Подключение к Postgres
+def save_to_db(symbol, price):
+    try:
+        conn = psycopg2.connect(
+            host=os.getenv('DB_HOST', 'postgres-service'),
+            database='cryptodb',
+            user='postgres',
+            password='supersecret'
+        )
+        cur = conn.cursor()
+        # Создаем таблицу, если нет
+        cur.execute("CREATE TABLE IF NOT EXISTS history (id SERIAL PRIMARY KEY, symbol TEXT, price NUMERIC, tstamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP);")
+        # Пишем цену
+        cur.execute("INSERT INTO history (symbol, price) VALUES (%s, %s)", (symbol, price))
+        conn.commit()
+        cur.close()
+        conn.close()
+    except Exception as e:
+        print(f"DB Error: {e}")
 app = Flask(__name__)
 # Подключаемся к Redis (имя хоста будет таким же, как имя Service в K8s)
 redis_host = os.getenv('REDIS_HOST', 'redis-service')

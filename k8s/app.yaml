@@ -18,7 +18,9 @@ spec:
         image: vakula2004/my-python-app:173
         env:
         - name: REDIS_HOST
-          value: "redis-service" # Имя сервиса из файла выше
+          value: "redis-service"
+        - name: DB_HOST
+          value: "postgres-service"   # Имя сервиса из файла выше
 ...
 apiVersion: v1
 kind: Service
