@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
       - name: my-python-app
-        image: vakula2004/my-python-app:166
+        image: vakula2004/my-python-app:167
         env:
         - name: REDIS_HOST
           value: "redis-service" # Имя сервиса из файла выше
