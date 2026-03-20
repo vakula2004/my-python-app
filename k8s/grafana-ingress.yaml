@@ -7,7 +7,7 @@ metadata:
     kubernetes.io/ingress.class: nginx
 spec:
   rules:
-  - host: grafana.local  # Замени на свой домен или IP
+  - host: localhost  # Замени на свой домен или IP
     http:
       paths:
       - path: /
@@ -16,4 +16,4 @@ spec:
           service:
             name: monitoring-grafana
             port:
-              number: 80
+              number: 81
