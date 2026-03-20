@@ -8,6 +8,7 @@ from flask import Flask, render_template
 from prometheus_flask_exporter import PrometheusMetrics
 from prometheus_client import generate_latest, CONTENT_TYPE_LATEST, Counter
 import time
+REQUEST_COUNT = Counter('flask_app_requests_total', 'Total HTTP Requests')
 app = Flask(__name__)
 metrics = PrometheusMetrics(app) # Это автоматически создаст эндпоинт /metrics
 app = Flask(__name__)
@@ -66,6 +67,7 @@ def metrics():
     return generate_latest(), 200, {'Content-Type': CONTENT_TYPE_LATEST}
 @app.route('/')
 def index():
+    REQUEST_COUNT.inc() # Увеличиваем при каждом заходе
     symbols = ['BTCUSDT', 'ETHUSDT', 'BNBUSDT']
     results = {}
     
