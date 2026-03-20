@@ -42,6 +42,19 @@ def get_history():
         print(f"!!! ОШИБКА ЧТЕНИЯ БД: {e}")
     return history
 @app.route('/')
+def index():
+    # Достаем последние 20 записей из Postgres
+    cur.execute("SELECT price, timestamp FROM history ORDER BY timestamp DESC LIMIT 20")
+    rows = cur.fetchall()
+    
+    # Разворачиваем данные для графика (чтобы время шло слева направо)
+    rows.reverse()
+    
+    prices = [float(row[0]) for row in rows]
+    times = [row[1].strftime('%H:%M:%S') for row in rows]
+    
+    return render_template('index.html', prices=prices, times=times)
+@app.route('/')
 def get_crypto():
     print("--- Новый запрос на главную страницу ---")
     symbols = ['BTCUSDT', 'ETHUSDT', 'BNBUSDT']
