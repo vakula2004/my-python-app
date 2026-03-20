@@ -8,7 +8,7 @@ metadata:
 spec:
   selector:
     matchLabels:
-      app: crypto-monitor # Должно совпадать с labels вашего Service
+      app: my-python-app # Должно совпадать с labels вашего Service
   endpoints:
   - port: http # Имя порта в вашем Service
     path: /metrics

@@ -6,7 +6,8 @@ from psycopg2 import pool
 import socket
 from flask import Flask, render_template
 from prometheus_flask_exporter import PrometheusMetrics
-
+from prometheus_client import generate_latest, CONTENT_TYPE_LATEST, Counter
+import time
 app = Flask(__name__)
 metrics = PrometheusMetrics(app) # Это автоматически создаст эндпоинт /metrics
 app = Flask(__name__)
@@ -60,7 +61,9 @@ def health():
         return f"Database unreachable: {e}", 500
     finally:
         if conn: put_db_conn(conn)
-
+@app.route('/metrics')
+def metrics():
+    return generate_latest(), 200, {'Content-Type': CONTENT_TYPE_LATEST}
 @app.route('/')
 def index():
     symbols = ['BTCUSDT', 'ETHUSDT', 'BNBUSDT']
