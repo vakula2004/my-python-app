@@ -21,42 +21,58 @@
      style="display: none;">
 </div>
 
+<div id="graph-data" data-json='{{ graph_json | tojson }}' style="display: none;"></div>
+
 <div class="container mt-5">
-    <h2>Динамика курса BTC/USDT</h2>
-    <canvas id="cryptoChart"></canvas>
+    <div class="card bg-dark text-white p-4">
+        <h2>Мониторинг Криптовалют</h2>
+        <canvas id="multiCryptoChart" style="max-height: 400px;"></canvas>
+    </div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
-    // 2. Безопасное получение данных через JS
-    const dataElement = document.getElementById('graph-data');
-    const labels = JSON.parse(dataElement.getAttribute('data-times'));
-    const dataPoints = JSON.parse(dataElement.getAttribute('data-prices'));
+    const rawData = JSON.parse(document.getElementById('graph-data').getAttribute('data-json'));
+    const ctx = document.getElementById('multiCryptoChart').getContext('2d');
 
-    const ctx = document.getElementById('cryptoChart').getContext('2d');
+    // Используем временные метки от BTC как общую ось X
+    const labels = rawData['BTCUSDT'].times;
+
     new Chart(ctx, {
         type: 'line',
         data: {
             labels: labels,
-            datasets: [{
-                label: 'Цена BTC/USDT',
-                data: dataPoints,
-                borderColor: '#00ff00', // DevOps Style Green
-                backgroundColor: 'rgba(0, 255, 0, 0.1)',
-                tension: 0.3,
-                fill: true
-            }]
+            datasets: [
+                {
+                    label: 'BTC/USDT',
+                    data: rawData['BTCUSDT'].prices,
+                    borderColor: '#f2a900', // Оранжевый (Биткоин)
+                    tension: 0.3,
+                    yAxisID: 'yBTC'
+                },
+                {
+                    label: 'ETH/USDT',
+                    data: rawData['ETHUSDT'].prices,
+                    borderColor: '#627eea', // Синий (Эфир)
+                    tension: 0.3,
+                    yAxisID: 'yETH'
+                },
+                {
+                    label: 'BNB/USDT',
+                    data: rawData['BNBUSDT'].prices,
+                    borderColor: '#f3ba2f', // Желтый (Binance)
+                    tension: 0.3,
+                    yAxisID: 'yBNB'
+                }
+            ]
         },
         options: {
             responsive: true,
             scales: {
-                y: { 
-                    beginAtZero: false,
-                    grid: { color: '#333' } 
-                },
-                x: { 
-                    grid: { display: false } 
-                }
+                // Поскольку цены разные (60к и 300), сделаем скрытые оси, чтобы графики не слиплись
+                yBTC: { display: true, position: 'left', title: { display: true, text: 'BTC Price' } },
+                yETH: { display: false }, 
+                yBNB: { display: false }
             }
         }
     });
