@@ -15,41 +15,53 @@
     </style>
 </head>
 <body>
-    <div class="container mt-5">
-    <h2>Динамика курса BTC/USDT</h2>
-    <div style="width: 100%; height: 400px;">
-        <canvas id="cryptoChart"></canvas>
-    </div>
+    <div id="graph-data" 
+     data-prices='{{ prices | tojson }}' 
+     data-times='{{ times | tojson }}' 
+     style="display: none;">
 </div>
 
-<script>
-    const ctx = document.getElementById('cryptoChart').getContext('2d');
-    
-    // Данные передаем из Flask через Jinja2
-    const labels = {{ times | tojson }};
-    const data = {{ prices | tojson }};
+<div class="container mt-5">
+    <h2>Динамика курса BTC/USDT</h2>
+    <canvas id="cryptoChart"></canvas>
+</div>
 
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    // 2. Безопасное получение данных через JS
+    const dataElement = document.getElementById('graph-data');
+    const labels = JSON.parse(dataElement.getAttribute('data-times'));
+    const dataPoints = JSON.parse(dataElement.getAttribute('data-prices'));
+
+    const ctx = document.getElementById('cryptoChart').getContext('2d');
     new Chart(ctx, {
         type: 'line',
         data: {
             labels: labels,
             datasets: [{
-                label: 'Цена USDT',
-                data: data,
-                borderColor: 'rgb(75, 192, 192)',
-                tension: 0.1,
-                fill: false
+                label: 'Цена BTC/USDT',
+                data: dataPoints,
+                borderColor: '#00ff00', // DevOps Style Green
+                backgroundColor: 'rgba(0, 255, 0, 0.1)',
+                tension: 0.3,
+                fill: true
             }]
         },
         options: {
             responsive: true,
             scales: {
-                y: { beginAtZero: false }
+                y: { 
+                    beginAtZero: false,
+                    grid: { color: '#333' } 
+                },
+                x: { 
+                    grid: { display: false } 
+                }
             }
         }
     });
-</script><
-    div class="container py-5">
+</script>
+    <div class="container py-5">
         <h1 class="text-center mb-4">📈 Мониторинг Криптовалют</h1>
         <div class="row justify-content-center">
             <div class="col-md-8">
@@ -77,6 +89,7 @@
                         </tbody>
                     </table>
                 </div>
+            </div>
                 <p class="text-muted mt-3 text-center">
                     <small>Обновлено через: {{ host }} | Данные кэшируются в Redis на 60с</small>
                 </p>
