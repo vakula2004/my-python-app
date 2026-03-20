@@ -1,137 +1,142 @@
 <!DOCTYPE html>
 <html lang="ru">
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Crypto Monitor - Dnipro Node</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         body { background-color: #f8f9fa; }
         .crypto-card { transition: transform 0.2s; }
-        .crypto-card:hover { transform: scale(1.02); }
         .source-cache { color: #198754; font-weight: bold; }
         .source-api { color: #0d6efd; font-weight: bold; }
+        .chart-container { background: #212529; border-radius: 15px; padding: 20px; margin-bottom: 30px; }
     </style>
 </head>
 <body>
-<div id="graph-data" 
-     data-json='{{ graph_json | tojson }}' 
-     style="display: none;">
-</div>
 
 <div id="graph-data" data-json='{{ graph_json | tojson }}' style="display: none;"></div>
 
 <div class="container mt-5">
-    <div class="card bg-dark text-white p-4">
-        <h2>Мониторинг Криптовалют</h2>
+    <h1 class="text-center mb-4">📈 Мониторинг Криптовалют</h1>
+    
+    <div class="chart-container shadow-lg">
+        <h3 class="text-white mb-3">Динамика цен (Live)</h3>
         <canvas id="multiCryptoChart" style="max-height: 400px;"></canvas>
     </div>
-</div>
 
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<script>
-    const rawData = JSON.parse(document.getElementById('graph-data').getAttribute('data-json'));
-    const btcPrices = rawData['BTCUSDT'].prices;  
-    const ctx = document.getElementById('multiCryptoChart').getContext('2d');
-
-    // Используем временные метки от BTC как общую ось X
-    const labels = rawData['BTCUSDT'].times;
-
-    new Chart(ctx, {
-        type: 'line',
-        data: {
-            labels: labels,
-            datasets: [
-                {
-                    label: 'BTC/USDT',
-                    data: rawData['BTCUSDT'].prices,
-                    borderColor: '#f2a900', // Оранжевый (Биткоин)
-                    tension: 0.3,
-                    yAxisID: 'yBTC'
-                },
-                {
-                    label: 'ETH/USDT',
-                    data: rawData['ETHUSDT'].prices,
-                    borderColor: '#627eea', // Синий (Эфир)
-                    tension: 0.3,
-                    yAxisID: 'yETH'
-                },
-                {
-                    label: 'BNB/USDT',
-                    data: rawData['BNBUSDT'].prices,
-                    borderColor: '#f3ba2f', // Желтый (Binance)
-                    tension: 0.3,
-                    yAxisID: 'yBNB'
-                }
-            ]
-        },
-        options: {
-            responsive: true,
-            scales: {
-                // Поскольку цены разные (60к и 300), сделаем скрытые оси, чтобы графики не слиплись
-                yBTC: { display: true, position: 'left', title: { display: true, text: 'BTC Price' } },
-                yETH: { display: false }, 
-                yBNB: { display: false }
-            }
-        }
-    });
-</script>       
-    <div class="container py-5">
-        <h1 class="text-center mb-4">📈 Мониторинг Криптовалют</h1>
-        <div class="row justify-content-center">
-            <div class="col-md-8">
-                <div class="table-responsive shadow-sm bg-white rounded">
-                    <table class="table table-hover mb-0">
-                        <thead class="table-dark">
-                            <tr>
-                                <th>Валюта</th>
-                                <th>Цена (USDT)</th>
-                                <th>Источник</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for symbol, info in data.items() %}
-                            <tr>
-                                <td><strong>{{ symbol }}</strong></td>
-                                <td>${{ info.price }}</td>
-                                <td>
-                                    <span class="source-{{ info.source }}">
-                                        {{ info.source | upper }}
-                                    </span>
-                                </td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
+    <div class="row justify-content-center">
+        <div class="col-md-10">
+            <div class="table-responsive shadow-sm bg-white rounded">
+                <table class="table table-hover mb-0">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>Валюта</th>
+                            <th>Цена (USDT)</th>
+                            <th>Источник</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for symbol, info in data.items() %}
+                        <tr>
+                            <td><strong>{{ symbol }}</strong></td>
+                            <td>${{ info.price }}</td>
+                            <td>
+                                <span class="source-{{ info.source }}">
+                                    {{ info.source | upper }}
+                                </span>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
             </div>
-                <p class="text-muted mt-3 text-center">
-                    <small>Обновлено через: {{ host }} | Данные кэшируются в Redis на 60с</small>
-                </p>
-            </div>
+            <p class="text-muted mt-3 text-center">
+                <small>Node: {{ host }} | Redis Cache: 60s</small>
+            </p>
         </div>
-        <h2 class="text-center mt-5 mb-3">🕒 История последних изменений</h2>
-<div class="table-responsive shadow-sm bg-white rounded">
-    <table class="table table-striped mb-0">
-        <thead class="table-secondary">
-            <tr>
-                <th>Валюта</th>
-                <th>Цена</th>
-                <th>Время (UTC)</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for row in history %}
-            <tr>
-                <td>{{ row[0] }}</td>
-                <td>${{ row[1] }}</td>
-                <td><small>{{ row[2].strftime('%Y-%m-%d %H:%M:%S') }}</small></td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
-</div>
     </div>
+
+    <h2 class="text-center mt-5 mb-3">🕒 История изменений</h2>
+    <div class="table-responsive shadow-sm bg-white rounded mb-5">
+        <table class="table table-striped mb-0">
+            <thead class="table-secondary">
+                <tr>
+                    <th>Валюта</th>
+                    <th>Цена</th>
+                    <th>Время (UTC)</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in history %}
+                <tr>
+                    <td>{{ row[0] }}</td>
+                    <td>${{ row[1] }}</td>
+                    <td><small>{{ row[2].strftime('%Y-%m-%d %H:%M:%S') }}</small></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+    // Инициализация графика
+    try {
+        const dataElement = document.getElementById('graph-data');
+        const rawData = JSON.parse(dataElement.getAttribute('data-json'));
+        const ctx = document.getElementById('multiCryptoChart').getContext('2d');
+
+        // Используем метки времени от BTC как общую ось X
+        const labels = rawData['BTCUSDT'].times;
+
+        new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [
+                    {
+                        label: 'BTC/USDT',
+                        data: rawData['BTCUSDT'].prices,
+                        borderColor: '#f2a900',
+                        backgroundColor: 'rgba(242, 169, 0, 0.1)',
+                        fill: true,
+                        tension: 0.3,
+                        yAxisID: 'y'
+                    },
+                    {
+                        label: 'ETH/USDT',
+                        data: rawData['ETHUSDT'].prices,
+                        borderColor: '#627eea',
+                        tension: 0.3,
+                        yAxisID: 'y1'
+                    },
+                    {
+                        label: 'BNB/USDT',
+                        data: rawData['BNBUSDT'].prices,
+                        borderColor: '#f3ba2f',
+                        tension: 0.3,
+                        yAxisID: 'y2'
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                interaction: { mode: 'index', intersect: false },
+                scales: {
+                    y: { type: 'linear', display: true, position: 'left', grid: { color: '#444' } },
+                    y1: { type: 'linear', display: false },
+                    y2: { type: 'linear', display: false }
+                },
+                plugins: {
+                    legend: { labels: { color: 'white' } }
+                }
+            }
+        });
+    } catch (e) {
+        console.error("Ошибка отрисовки графика:", e);
+    }
+</script>
 </body>
 </html>

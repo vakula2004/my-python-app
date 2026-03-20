@@ -2,52 +2,68 @@ import os
 import requests
 import redis
 import psycopg2
+from psycopg2 import pool
 import socket
 from flask import Flask, render_template
 
 app = Flask(__name__)
 
-# Универсальная функция для подключения к БД
-def get_db_connection():
-    return psycopg2.connect(
+# 1. Глобальный Redis (одно соединение на весь процесс)
+r = redis.Redis(
+    host=os.getenv('REDIS_HOST', 'redis-service'), 
+    port=6379, 
+    decode_responses=True
+)
+
+# 2. Пул соединений для PostgreSQL
+try:
+    db_pool = psycopg2.pool.SimpleConnectionPool(
+        1, 10, # Минимум 1, максимум 10 соединений
         host=os.getenv('DB_HOST', 'postgres-service'),
         database='cryptodb',
         user='postgres',
-        password='supersecret',
+        password=os.getenv('DB_PASSWORD', 'supersecret'),
         connect_timeout=2
     )
+except Exception as e:
+    print(f"CRITICAL: Could not create DB pool: {e}")
+
+def get_db_conn():
+    return db_pool.getconn()
+
+def put_db_conn(conn):
+    db_pool.putconn(conn)
 
 def save_to_db(symbol, price):
-    """Записывает одну точку в историю"""
+    conn = None
     try:
-        conn = get_db_connection()
+        conn = get_db_conn()
         cur = conn.cursor()
-        # Используем tstamp (проверь имя колонки в своей БД)
         cur.execute("INSERT INTO history (symbol, price) VALUES (%s, %s)", (symbol, str(price)))
         conn.commit()
         cur.close()
-        conn.close()
     except Exception as e:
         print(f"!!! ОШИБКА ЗАПИСИ: {e}")
+    finally:
+        if conn: put_db_conn(conn)
 
 @app.route('/health')
 def health():
-    """Проверка для Liveness/Readiness проб Kubernetes"""
+    conn = None
     try:
-        conn = get_db_connection()
-        conn.close()
+        conn = get_db_conn()
         return "OK", 200
     except Exception as e:
         return f"Database unreachable: {e}", 500
+    finally:
+        if conn: put_db_conn(conn)
+
 @app.route('/')
 def index():
-    print("--- Запрос на главную страницу ---")
     symbols = ['BTCUSDT', 'ETHUSDT', 'BNBUSDT']
     results = {}
     
-    # 1. Работа с Redis (Кэш)
-    r = redis.Redis(host=os.getenv('REDIS_HOST', 'redis-service'), port=6379, decode_responses=True)
-
+    # Сбор текущих цен
     for symbol in symbols:
         price = r.get(symbol)
         source = "cache"
@@ -57,31 +73,26 @@ def index():
                 price = res.json()['price']
                 r.set(symbol, price, ex=60)
                 source = "api"
-                # Пишем в базу только свежие данные из API
                 save_to_db(symbol, price)
             except Exception as e:
-                print(f"Ошибка API для {symbol}: {e}")
+                print(f"Ошибка API {symbol}: {e}")
                 price = "0.0"
-        
         results[symbol] = {"price": price, "source": source}
 
-    # 2. Получение данных для ТАБЛИЦЫ и ГРАФИКОВ
+    # Сбор данных для таблиц и графиков
     history_table = []
-    graph_data = {
-        'BTCUSDT': {'prices': [], 'times': []},
-        'ETHUSDT': {'prices': [], 'times': []},
-        'BNBUSDT': {'prices': [], 'times': []}
-    }
+    graph_data = {s: {'prices': [], 'times': []} for s in symbols}
     
+    conn = None
     try:
-        conn = get_db_connection()
+        conn = get_db_conn()
         cur = conn.cursor()
         
-        # Данные для таблицы (последние 10 записей)
+        # Последние записи
         cur.execute("SELECT symbol, price, tstamp FROM history ORDER BY tstamp DESC LIMIT 10;")
         history_table = cur.fetchall()
         
-        # Данные для графиков (берем последние 60 записей, чтобы хватило на все 3 валюты)
+        # Данные для графиков
         cur.execute("""
             SELECT symbol, price, tstamp FROM (
                 SELECT symbol, price, tstamp, 
@@ -91,25 +102,22 @@ def index():
             ) t WHERE rn <= 20 ORDER BY tstamp ASC;
         """)
         
-        rows = cur.fetchall()
-        for row in rows:
+        for row in cur.fetchall():
             sym = row[0]
             if sym in graph_data:
                 graph_data[sym]['prices'].append(float(row[1]))
                 graph_data[sym]['times'].append(row[2].strftime('%H:%M:%S'))
-        
         cur.close()
-        conn.close()
     except Exception as e:
         print(f"!!! ОШИБКА БАЗЫ: {e}")
+    finally:
+        if conn: put_db_conn(conn)
 
     return render_template('index.html', 
                            data=results, 
                            history=history_table, 
-                           graph_json=graph_data, # Передаем один объект со всеми данными
+                           graph_json=graph_data, 
                            host=socket.gethostname())
 
-
 if __name__ == '__main__':
-    # Включаем debug=True только для тестов, в K8s лучше оставить без него
     app.run(host='0.0.0.0', port=5000)
