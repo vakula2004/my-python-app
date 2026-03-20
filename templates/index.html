@@ -15,8 +15,8 @@
     </style>
 </head>
 <body>
-    <div id="graph-data" 
-     data-prices='{{ prices | tojson }}' 
+<div id="graph-data" 
+     data-json='{{ graph_json | tojson }}' 
      data-times='{{ times | tojson }}' 
      style="display: none;">
 </div>
@@ -76,7 +76,7 @@
             }
         }
     });
-</script>
+</script>       
     <div class="container py-5">
         <h1 class="text-center mb-4">📈 Мониторинг Криптовалют</h1>
         <div class="row justify-content-center">
