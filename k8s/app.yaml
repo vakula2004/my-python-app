@@ -40,13 +40,13 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: my-python-app-service
-  namespace: default
+  name: crypto-monitor-service
+  labels:
+    app: crypto-monitor # Этот лейбл мы пропишем в ServiceMonitor
 spec:
-  selector:
-    app: my-python-app
   ports:
-    - protocol: TCP
-      port: 80
-      targetPort: 5000
-  
+  - name: http # Имя порта должно быть "http" или совпадать с тем, что в ServiceMonitor
+    port: 80
+    targetPort: 5000
+  selector:
+    app: crypto-monitor
