@@ -30,6 +30,15 @@ def save_to_db(symbol, price):
     except Exception as e:
         print(f"!!! ОШИБКА ЗАПИСИ: {e}")
 
+@app.route('/health')
+def health():
+    """Проверка для Liveness/Readiness проб Kubernetes"""
+    try:
+        conn = get_db_connection()
+        conn.close()
+        return "OK", 200
+    except Exception as e:
+        return f"Database unreachable: {e}", 500
 @app.route('/')
 def index():
     print("--- Запрос на главную страницу ---")
@@ -99,15 +108,7 @@ def index():
                            history=history_table, 
                            graph_json=graph_data, # Передаем один объект со всеми данными
                            host=socket.gethostname())
-@app.route('/health')
-def health():
-    """Проверка для Liveness/Readiness проб Kubernetes"""
-    try:
-        conn = get_db_connection()
-        conn.close()
-        return "OK", 200
-    except Exception as e:
-        return f"Database unreachable: {e}", 500
+
 
 if __name__ == '__main__':
     # Включаем debug=True только для тестов, в K8s лучше оставить без него
