@@ -1,0 +1,15 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: flask-app-monitor
+  namespace: monitoring # или там, где лежит ваше приложение
+  labels:
+    release: monitoring # ВАЖНО: этот label должен совпадать с именем вашего Helm-релиза
+spec:
+  selector:
+    matchLabels:
+      app: crypto-monitor # Должно совпадать с labels вашего Service
+  endpoints:
+  - port: http # Имя порта в вашем Service
+    path: /metrics
+    interval: 15s
