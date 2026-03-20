@@ -5,7 +5,10 @@ import psycopg2
 from psycopg2 import pool
 import socket
 from flask import Flask, render_template
+from prometheus_flask_exporter import PrometheusMetrics
 
+app = Flask(__name__)
+metrics = PrometheusMetrics(app) # Это автоматически создаст эндпоинт /metrics
 app = Flask(__name__)
 
 # 1. Глобальный Redis (одно соединение на весь процесс)
