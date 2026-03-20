@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
       - name: my-python-app
-        image: vakula2004/my-python-app:262
+        image: vakula2004/my-python-app:263
         ports:
         - containerPort: 5000
         # Пробы теперь на своем месте внутри контейнера
