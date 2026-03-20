@@ -17,7 +17,6 @@
 <body>
 <div id="graph-data" 
      data-json='{{ graph_json | tojson }}' 
-     data-times='{{ times | tojson }}' 
      style="display: none;">
 </div>
 
@@ -33,6 +32,7 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
     const rawData = JSON.parse(document.getElementById('graph-data').getAttribute('data-json'));
+    const btcPrices = rawData['BTCUSDT'].prices;  
     const ctx = document.getElementById('multiCryptoChart').getContext('2d');
 
     // Используем временные метки от BTC как общую ось X
