@@ -4,9 +4,10 @@ metadata:
   name: my-python-app-ingress
   namespace: default
   annotations:
-    kubernetes.io/ingress.class: nginx
+    # Убираем лишнее, оставляем только нужное для работы путей
     nginx.ingress.kubernetes.io/rewrite-target: /
 spec:
+  ingressClassName: nginx 
   rules:
   - http:
       paths:
@@ -14,6 +15,6 @@ spec:
         pathType: Prefix
         backend:
           service:
-            name: my-python-app-service
+            name: crypto-monitor-service  # <--- ПРАВИЛЬНОЕ ИМЯ
             port:
-              number: 80
+              number: 5000               # <--- ПРАВИЛЬНЫЙ ПОРТ
