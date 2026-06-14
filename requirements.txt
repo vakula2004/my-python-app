@@ -1,5 +1,2 @@
 flask
-requests
-redis
-psycopg2-binary
-prometheus-flask-exporter
+pytest
